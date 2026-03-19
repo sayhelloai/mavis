@@ -1,0 +1,339 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id                String   @id @default(cuid())
+  name              String
+  domain            String   @unique
+  plan              Plan     @default(INTENT_INTEL)
+  prospectBudget    Int      @default(500)
+  prospectUsed      Int      @default(0)
+  prospectRollover  Int      @default(0)
+  rolloverExpiresAt DateTime?
+  isTrial           Boolean  @default(false)
+  trialEndsAt       DateTime?
+  trialProspectCap  Int      @default(50)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  users             User[]
+  icps              ICP[]
+  prospects         Prospect[]
+  signals           Signal[]
+  sequences         EmailSequence[]
+  suppressions      Suppression[]
+  hubContent        HubAsset[]
+  dealRooms         DealRoom[]
+}
+
+enum Plan {
+  FREE_TRIAL
+  INTENT_INTEL
+  STARTER
+  GROWTH
+  SCALE
+  ENTERPRISE
+}
+
+model User {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  email      String
+  name       String
+  role       UserRole @default(SALES_REP)
+  createdAt  DateTime @default(now())
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+enum UserRole {
+  COMPANY_ADMIN
+  DIVISION_MANAGER
+  REGIONAL_MANAGER
+  SALES_REP
+}
+
+model ICP {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  name            String
+  industries      String[]
+  revenueMin      Int?
+  revenueMax      Int?
+  geographies     String[]
+  personaTitles   String[]
+  keywords        String[]
+  scoreThreshold  Int      @default(65)
+  qualityScore    Int?
+  isActive        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  signals         Signal[]
+  prospects       Prospect[]
+
+  @@index([tenantId])
+}
+
+model Signal {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
+  icpId         String?
+  icp           ICP?         @relation(fields: [icpId], references: [id])
+  source        SignalSource
+  sourceUrl     String?
+  content       String
+  companyName   String?
+  companyDomain String?
+  detectedAt    DateTime     @default(now())
+  icpScore      Int?
+  stage         SignalStage  @default(RAW)
+
+  prospect      Prospect?
+
+  @@index([tenantId])
+  @@index([tenantId, stage])
+}
+
+enum SignalSource {
+  REDDIT
+  LINKEDIN
+  NEWS
+  SEC_EDGAR
+  G2
+  TWITTER_X
+  GITHUB
+  JOB_POSTING
+}
+
+enum SignalStage {
+  RAW
+  SCORED
+  QUALIFIED
+  ENRICHED
+  SEQUENCED
+  FAILED
+}
+
+model Prospect {
+  id                String         @id @default(cuid())
+  tenantId          String
+  tenant            Tenant         @relation(fields: [tenantId], references: [id])
+  signalId          String?        @unique
+  signal            Signal?        @relation(fields: [signalId], references: [id])
+  icpId             String?
+  icp               ICP?           @relation(fields: [icpId], references: [id])
+
+  firstName         String?
+  lastName          String?
+  email             String?
+  emailVerified     Boolean        @default(false)
+  title             String?
+  linkedinUrl       String?
+
+  companyName       String
+  companyDomain     String
+  companyRevenue    Int?
+  companySize       Int?
+  companyIndustry   String?
+
+  status            ProspectStatus @default(ACTIVE)
+  assignedToId      String?
+
+  dormantReason     String?
+  reactivateAt      DateTime?
+  reactivationCount Int            @default(0)
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  sequences         EmailSequence[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, companyDomain])
+}
+
+enum ProspectStatus {
+  ACTIVE
+  QUEUED
+  LEAD
+  HOT_LEAD
+  DORMANT
+  NO_RESPONSE
+  SUPPRESSED
+}
+
+model Suppression {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  email      String
+  reason     String
+  createdAt  DateTime @default(now())
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model EmailSequence {
+  id           String         @id @default(cuid())
+  tenantId     String
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  prospectId   String
+  prospect     Prospect       @relation(fields: [prospectId], references: [id])
+  workflowId   String?
+  status       SequenceStatus @default(PENDING_REVIEW)
+  currentTouch Int            @default(0)
+
+  touches      EmailTouch[]
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+enum SequenceStatus {
+  PENDING_REVIEW
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+model EmailTouch {
+  id          String        @id @default(cuid())
+  sequenceId  String
+  sequence    EmailSequence @relation(fields: [sequenceId], references: [id])
+  touchNumber Int
+  subject     String
+  body        String        @db.Text
+  variant     String        @default("A")
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  openedAt    DateTime?
+  clickedAt   DateTime?
+  repliedAt   DateTime?
+  bounced     Boolean       @default(false)
+
+  @@index([sequenceId])
+}
+
+model HubAsset {
+  id             String        @id @default(cuid())
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id])
+  name           String
+  fileType       String
+  s3Key          String
+  fileSizeBytes  Int
+  currentVersion Int           @default(1)
+  tags           String[]
+  expiresAt      DateTime?
+  isArchived     Boolean       @default(false)
+  ownerId        String?
+  minAccessLevel UserRole      @default(SALES_REP)
+  downloadMode   DownloadMode  @default(OPEN)
+
+  versions       HubAssetVersion[]
+  comments       HubComment[]
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, isArchived])
+}
+
+enum DownloadMode {
+  OPEN
+  WATERMARKED
+  REQUIRE_JUSTIFICATION
+  VIEW_ONLY
+  TIME_LIMITED
+}
+
+model HubAssetVersion {
+  id            String    @id @default(cuid())
+  assetId       String
+  asset         HubAsset  @relation(fields: [assetId], references: [id])
+  version       Int
+  s3Key         String
+  uploadedById  String
+  changeNote    String?
+  createdAt     DateTime  @default(now())
+
+  @@unique([assetId, version])
+}
+
+model HubComment {
+  id        String      @id @default(cuid())
+  assetId   String
+  asset     HubAsset    @relation(fields: [assetId], references: [id])
+  authorId  String
+  content   String      @db.Text
+  parentId  String?
+  parent    HubComment? @relation("CommentThread", fields: [parentId], references: [id])
+  replies   HubComment[] @relation("CommentThread")
+  createdAt DateTime    @default(now())
+
+  @@index([assetId])
+}
+
+model DealRoom {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  name          String
+  prospectName  String?
+  prospectEmail String?
+  createdById   String
+  slug          String    @unique
+  password      String?
+  expiresAt     DateTime?
+  isRevoked     Boolean   @default(false)
+
+  assets        DealRoomAsset[]
+  events        DealRoomEvent[]
+
+  createdAt     DateTime  @default(now())
+
+  @@index([tenantId])
+}
+
+model DealRoomAsset {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      DealRoom @relation(fields: [roomId], references: [id])
+  assetId   String
+  sortOrder Int      @default(0)
+
+  @@index([roomId])
+}
+
+model DealRoomEvent {
+  id           String   @id @default(cuid())
+  roomId       String
+  room         DealRoom @relation(fields: [roomId], references: [id])
+  eventType    String
+  visitorEmail String?
+  pageNumber   Int?
+  timeOnPageMs Int?
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  @@index([roomId])
+  @@index([roomId, eventType])
+}

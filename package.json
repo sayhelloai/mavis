@@ -1,0 +1,20 @@
+{
+  "name": "mavis",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=apps/web\" \"npm run dev --workspace=apps/worker\" \"npm run dev --workspace=apps/api\"",
+    "build": "npm run build --workspaces",
+    "db:push": "npm run db:push --workspace=packages/db",
+    "db:seed": "npm run db:seed --workspace=packages/db",
+    "db:generate": "npm run db:generate --workspace=packages/db"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { SignupForm } from '@/components/auth/SignupForm'
 import { Metadata } from 'next'
 
@@ -20,7 +21,9 @@ export default function SignupPage() {
           <h1 className="text-2xl font-bold text-white">Start your free trial</h1>
           <p className="text-muted mt-1 text-sm">50 prospect credits, no credit card required</p>
         </div>
-        <SignupForm />
+        <Suspense fallback={<div className="h-64" />}>
+          <SignupForm />
+        </Suspense>
       </div>
     </div>
   )

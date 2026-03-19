@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { Metadata } from 'next'
 
@@ -20,7 +21,9 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold text-white">Welcome back</h1>
           <p className="text-muted mt-1 text-sm">Sign in to your Mavis workspace</p>
         </div>
-        <LoginForm />
+        <Suspense fallback={<div className="h-64" />}>
+          <LoginForm />
+        </Suspense>
       </div>
     </div>
   )

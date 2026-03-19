@@ -22,7 +22,7 @@ const FILE_ICONS: Record<string, string> = {
   pdf: '📄', pptx: '📊', docx: '📝', mp4: '🎥', default: '📁',
 }
 
-export default function DealRoomPage({ params }: DealRoomPageProps) {
+export default function DealRoomPage({ params: _params }: DealRoomPageProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
